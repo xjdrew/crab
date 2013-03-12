@@ -7,6 +7,7 @@ limitation
 ----------
 
 depend on iconv
+
 crude hash table
 
 usage
@@ -17,6 +18,7 @@ make better
 -----------
 
 remove dependence to iconv
+
 rewrite hash part
 
 
