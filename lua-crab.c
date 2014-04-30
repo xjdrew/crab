@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdint.h>
-#include <assert.h>
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -84,6 +83,8 @@ table_expand(Table *t) {
         new->flag = old->flag;
         new->value = old->value;
     }
+    // free old node
+    free(node);
 }
 
 /*
@@ -226,7 +227,11 @@ dict_open(lua_State *L) {
 
 static int
 dict_filter(lua_State *L) {
-    assert(g_dict);
+    if(!g_dict) {
+        return luaL_error(L, "need open first");
+    }
+
+    Table* dict = g_dict;
     luaL_checktype(L, 1, LUA_TTABLE);
 
     size_t len = lua_rawlen(L,1);
@@ -241,7 +246,7 @@ dict_filter(lua_State *L) {
             lua_pop(L, 1);
 
             if(node == NULL) {
-                node = table_get(g_dict, rune);
+                node = table_get(dict, rune);
             } else {
                 node = table_get(node->value, rune);
             }
