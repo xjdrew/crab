@@ -1,23 +1,29 @@
 #include <stdlib.h>
 #include <stdint.h>
+#include <assert.h>
 
-typedef struct _table_node {
+#include "lua.h"
+#include "lauxlib.h"
+
+typedef struct _TableNode {
     uint32_t key;
     int next;
 
     char flag; // 0: empty, 'n': non-terminator, 'o': terminator
     void* value;
-} table_node;
+} TableNode;
 
-typedef struct _table {
+typedef struct _Table {
     int capacity;
 
-    table_node* node;
-    table_node* lastfree;
-} table;
+    TableNode* node;
+    TableNode* lastfree;
+} Table;
+
+Table *g_dict = NULL;
 
 inline static void
-initnode(table_node *node) {
+initnode(TableNode *node) {
     node->next = -1;
 
     node->flag = 0;
@@ -25,27 +31,27 @@ initnode(table_node *node) {
 }
 
 inline static int
-tisnil(table_node* node) {
+tisnil(TableNode* node) {
     return node->flag == 0;
 }
 
-inline static table_node*
-tnode(table *t, int index) {
+inline static TableNode*
+tnode(Table *t, int index) {
     return t->node + index;
 }
 
 inline static int
-tindex(table *t, table_node *node) {
+tindex(Table *t, TableNode *node) {
     return node - t->node;
 }
 
-static table_node*
-mainposition(table *t, uint32_t key) {
+static TableNode*
+mainposition(Table *t, uint32_t key) {
     return &t->node[(key & (t->capacity -1))];
 }
 
-static table_node*
-getfreenode(table *t) {
+static TableNode*
+getfreenode(Table *t) {
     while(t->lastfree >= t->node) {
         if(tisnil(t->lastfree)) {
             return t->lastfree;
@@ -55,26 +61,26 @@ getfreenode(table *t) {
     return NULL;
 }
 
-static table_node*
-table_newkey(table *t, uint32_t key);
+static TableNode*
+table_newkey(Table *t, uint32_t key);
 
 static void
-table_expand(table *t) {
+table_expand(Table *t) {
     int capacity = t->capacity;
-    table_node *node = t->node;
+    TableNode *node = t->node;
 
     t->capacity = t->capacity * 2;
-    t->node = calloc(t->capacity, sizeof(table_node));
+    t->node = calloc(t->capacity, sizeof(TableNode));
     int i;
-    for(i=0;i<t->capacity;i++) {
+    for(i=0; i<t->capacity; i++) {
         initnode(t->node + i);
     }
-    for(i=0;i<capacity;i++) {
-        table_node *old = capacity + i;
+    for(i=0; i< capacity; i++) {
+        TableNode *old = node + i;
         if(tisnil(old)) {
             continue;
         }
-        table_node *new = table_newkey(t, old->key);
+        TableNode *new = table_newkey(t, old->key);
         new->flag = old->flag;
         new->value = old->value;
     }
@@ -87,16 +93,16 @@ table_expand(table *t) {
 ** put new key in its main position; otherwise (colliding node is in its main
 ** position), new key goes to an empty position.
 */
-static table_node*
-table_newkey(table *t, uint32_t key) {
-    table_node *mp = mainposition(t, key);
+static TableNode*
+table_newkey(Table *t, uint32_t key) {
+    TableNode *mp = mainposition(t, key);
     if(!tisnil(mp)) {
-        table_node *n = getfreenode(t);
+        TableNode *n = getfreenode(t);
         if(n == NULL) {
             table_expand(t);
             return table_newkey(t, key);
         }
-        table_node *othern = mainposition(t, mp->key);
+        TableNode *othern = mainposition(t, mp->key);
         if (othern != mp) {
             int mindex = tindex(t, mp);
             while(othern->next != mindex) {
@@ -116,9 +122,9 @@ table_newkey(table *t, uint32_t key) {
     return mp;
 }
 
-static table_node*
-table_get(table *t, uint32_t key) {
-    table_node *n = mainposition(t, key);
+static TableNode*
+table_get(Table *t, uint32_t key) {
+    TableNode *n = mainposition(t, key);
     while(!tisnil(n)) {
         if(n->key == key) {
             return n;
@@ -131,48 +137,48 @@ table_get(table *t, uint32_t key) {
     return NULL;
 }
 
-static table_node*
-table_insert(table *t, uint32_t key) {
-    table_node *node = table_get(t, key);
+static TableNode*
+table_insert(Table *t, uint32_t key) {
+    TableNode *node = table_get(t, key);
     if(node) {
         return node;
     }
     return table_newkey(t, key);
 }
 
-static table*
-table_new(int capacity) {
-    table *t = malloc(sizeof(table));
+static Table*
+table_new() {
+    Table *t = malloc(sizeof(Table));
     t->capacity = 1;
 
-    t->node = malloc(sizeof(table_node));
+    t->node = malloc(sizeof(TableNode));
     initnode(t->node);
     t->lastfree = &t->node[0];
     return t;
 }
 
 static void
-table_destory(table *t) {
+table_destory(Table *t) {
 }
 
 // construct dictinory tree
 static void
-_dict_close(table *t) {
+_dict_close(Table *t) {
 }
 
 static int
-_dict_insert(lua_State *L, table* dict) {
+_dict_insert(lua_State *L, Table* dict) {
     if(!lua_istable(L, -1)) {
         return 0;
     }
 
-    size_t len = lua_rawlen(L, 1);
+    size_t len = lua_rawlen(L, -1);
     size_t i;
     uint32_t rune;
-    table_node *node = NULL;
+    TableNode *node = NULL;
     for(i=1; i<=len; i++) {
         lua_rawgeti(L, -1, i);
-        int issnum;
+        int isnum;
         rune = lua_tounsignedx(L, -1, &isnum);
         lua_pop(L, 1);
 
@@ -180,7 +186,7 @@ _dict_insert(lua_State *L, table* dict) {
             return 0;
         }
 
-        table *tmp;
+        Table *tmp;
         if(node == NULL) {
             tmp = dict;
         } else {
@@ -201,7 +207,7 @@ static int
 dict_open(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE);
 
-    table *dict = table_new();
+    Table *dict = table_new();
     size_t len = lua_rawlen(L,1);
     size_t i;
     for(i=1;i<=len;i++) {
@@ -227,15 +233,15 @@ dict_filter(lua_State *L) {
     size_t i,j;
     int flag = 0;
     for(i=1;i<=len;) {
-        table_node *node = NULL;
+        TableNode *node = NULL;
         int step = 0;
         for(j=i;j<=len;j++) {
             lua_rawgeti(L, 1, j);
-            uint32_t rune = lua_tounsigned(L, 1, j);
+            uint32_t rune = lua_tounsigned(L, -1);
             lua_pop(L, 1);
 
             if(node == NULL) {
-                node = table_get(dict, rune);
+                node = table_get(g_dict, rune);
             } else {
                 node = table_get(node->value, rune);
             }
@@ -272,3 +278,4 @@ luaopen_crab_c(lua_State *L) {
     luaL_newlib(L, l);
     return 1;
 }
+
