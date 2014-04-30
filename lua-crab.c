@@ -74,6 +74,7 @@ table_expand(Table *t) {
     for(i=0; i<t->capacity; i++) {
         initnode(t->node + i);
     }
+
     for(i=0; i< capacity; i++) {
         TableNode *old = node + i;
         if(tisnil(old)) {
@@ -83,6 +84,7 @@ table_expand(Table *t) {
         new->flag = old->flag;
         new->value = old->value;
     }
+    t->lastfree = t->node + t->capacity - 1;
     // free old node
     free(node);
 }
