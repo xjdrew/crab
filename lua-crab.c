@@ -160,13 +160,38 @@ table_new() {
     return t;
 }
 
-static void
-table_destory(Table *t) {
-}
-
 // construct dictinory tree
 static void
 _dict_close(Table *t) {
+    if(t == NULL) {
+        return;
+    }
+    int i = 0;
+    for(i=0; i<t->capacity; i++) {
+        TableNode *node = t->node + i;
+        if(node->flag != 0) {
+            _dict_close(node->value);
+        }
+    }
+    free(t->node);
+}
+
+static void
+_dict_dump(Table *t, int indent) {
+    if(t == NULL) {
+        return;
+    }
+    int i = 0;
+    for(i=0; i<t->capacity; i++) {
+        TableNode *node = t->node + i;
+        printf("%*s", indent, " ");
+        if(node->flag != 0) {
+            printf("0x%x\n", node->key);
+            _dict_dump(node->value, indent + 8);
+        } else {
+            printf("%s\n", "nil");
+        }
+    }
 }
 
 static int
@@ -222,6 +247,7 @@ dict_open(lua_State *L) {
         lua_pop(L, 1);
     }
 
+    //_dict_dump(dict, 0);
     // don't close old g_dict, avoid crash
     g_dict = dict;
     return 0;
