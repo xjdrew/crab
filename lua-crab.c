@@ -74,6 +74,7 @@ table_expand(Table *t) {
     for(i=0; i<t->capacity; i++) {
         initnode(t->node + i);
     }
+    t->lastfree = t->node + (t->capacity - 1);
 
     for(i=0; i< capacity; i++) {
         TableNode *old = node + i;
@@ -84,7 +85,6 @@ table_expand(Table *t) {
         new->flag = old->flag;
         new->value = old->value;
     }
-    t->lastfree = t->node + t->capacity - 1;
     // free old node
     free(node);
 }
@@ -156,7 +156,7 @@ table_new() {
 
     t->node = malloc(sizeof(TableNode));
     initnode(t->node);
-    t->lastfree = &t->node[0];
+    t->lastfree = t->node;
     return t;
 }
 
