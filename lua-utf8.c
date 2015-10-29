@@ -75,7 +75,7 @@ _toutf32(lua_State *L) {
             count = -1;
             break;
         }
-        lua_pushunsigned(L, _decode(str, i, step));
+        lua_pushinteger(L, _decode(str, i, step));
         count = count + 1;
         lua_rawseti(L, 2, count);
 
@@ -99,7 +99,7 @@ _toutf8(lua_State *L) {
     for(i = 1; i <= len; i++) {
         lua_rawgeti(L, 1, i);
         int isnum;
-        uint32_t rune = lua_tounsignedx(L, -1, &isnum);
+        uint32_t rune = (uint32_t)lua_tointegerx(L, -1, &isnum);
         lua_pop(L, 1);
 
         if(!isnum) {
@@ -116,7 +116,7 @@ _toutf8(lua_State *L) {
     uint8_t *tmp = str;
     for(i = 1; i <= len; i++) {
         lua_rawgeti(L, 1, i);
-        uint32_t rune = lua_tounsigned(L, -1);
+        uint32_t rune = lua_tointeger(L, -1);
         lua_pop(L, 1);
 
         int bytes = _bytes(rune);

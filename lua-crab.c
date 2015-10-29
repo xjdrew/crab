@@ -68,6 +68,7 @@ table_expand(Table *t) {
     int capacity = t->capacity;
     TableNode *node = t->node;
 
+    // init new table
     t->capacity = t->capacity * 2;
     t->node = calloc(t->capacity, sizeof(TableNode));
     int i;
@@ -76,6 +77,7 @@ table_expand(Table *t) {
     }
     t->lastfree = t->node + (t->capacity - 1);
 
+    // reinsert old node
     for(i=0; i< capacity; i++) {
         TableNode *old = node + i;
         if(tisnil(old)) {
@@ -160,7 +162,7 @@ table_new() {
     return t;
 }
 
-// construct dictinory tree
+// deconstruct dictinory tree
 static void
 _dict_close(Table *t) {
     if(t == NULL) {
@@ -174,6 +176,7 @@ _dict_close(Table *t) {
         }
     }
     free(t->node);
+    free(t);
 }
 
 static void
@@ -207,7 +210,7 @@ _dict_insert(lua_State *L, Table* dict) {
     for(i=1; i<=len; i++) {
         lua_rawgeti(L, -1, i);
         int isnum;
-        rune = lua_tounsignedx(L, -1, &isnum);
+        rune = (uint32_t)lua_tointegerx(L, -1, &isnum);
         lua_pop(L, 1);
 
         if(!isnum) {
@@ -270,7 +273,7 @@ dict_filter(lua_State *L) {
         int step = 0;
         for(j=i;j<=len;j++) {
             lua_rawgeti(L, 1, j);
-            uint32_t rune = lua_tounsigned(L, -1);
+            uint32_t rune = (uint32_t) lua_tointeger(L, -1);
             lua_pop(L, 1);
 
             if(node == NULL) {
