@@ -14,7 +14,7 @@ struct word {
     struct word* next;
 };
 
-struct word* words[0xFFFF]; 
+struct word* words[0xFFFF+1]; 
 
 unsigned int _hash(wchar_t c) {
     unsigned low = c & 0xFFFF;
